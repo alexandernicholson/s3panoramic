@@ -2,6 +2,9 @@
 
 A modern, zero-retention S3 bucket browser with a clean interface. View and download files from your S3 buckets without storing any data locally.
 
+![image](https://github.com/user-attachments/assets/10c1f3c3-604d-4c5e-be7f-07a9e8dc893b)
+
+
 ## Features
 
 - 📁 Browse S3 buckets with folder-like navigation
