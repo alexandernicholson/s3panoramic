@@ -10,7 +10,7 @@ export function browser(
 ) {
   return `
     <div class="browser">
-      <h1>Object Browser</h1>
+      <h1>S3 Panoramic</h1>
       
       ${search(query)}
       
