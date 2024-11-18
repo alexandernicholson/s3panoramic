@@ -14,9 +14,6 @@ RUN deno cache src/main.ts
 # Copy source code
 COPY . .
 
-# Compile the app
-RUN deno cache src/main.ts
-
 # Expose the port
 EXPOSE 3000
 
