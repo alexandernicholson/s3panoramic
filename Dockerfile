@@ -9,7 +9,7 @@ COPY deno.json .
 COPY import_map.json* .
 
 # Cache dependencies
-RUN deno cache --import-map=import_map.json src/main.ts
+RUN deno cache src/main.ts
 
 # Copy source code
 COPY . .
