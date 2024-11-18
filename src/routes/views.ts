@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { StorageService } from "../services/storage.ts";
-import { browser, renderBreadcrumbs } from "../templates/browser.ts";
+import { browser } from "../templates/browser.ts";
 import { layout } from "../templates/layout.ts";
 import { objectList } from "../templates/components/object_list.ts";
 import { pagination } from "../templates/components/pagination.ts";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.48/deno-dom-wasm.ts";
 
 const viewRoutes = new Hono();
 
@@ -26,17 +27,12 @@ viewRoutes.get("/", async (c) => {
     continuationToken,
   });
 
-  // If it's an HTMX request, return both navigation and content
+  // If it's an HTMX request, return just the browser content
   if (c.req.header("HX-Request")) {
-    return c.html(`
-      <div id="browser-navigation">
-        ${renderBreadcrumbs(prefix)}
-      </div>
-      <div id="browser-content">
-        ${objectList(result)}
-        ${pagination(result)}
-      </div>
-    `);
+    const content = browser(result, prefix, query);
+    const doc = new DOMParser().parseFromString(content, "text/html");
+    const browserContent = doc?.querySelector("#browser-content")?.innerHTML || "";
+    return c.html(browserContent);
   }
   
   // Otherwise return the full layout

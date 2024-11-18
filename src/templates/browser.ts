@@ -14,7 +14,7 @@ export function browser(
       
       ${search(query)}
       
-      <div id="browser-navigation">
+      <div class="browser-navigation">
         ${renderBreadcrumbs(prefix)}
       </div>
       
@@ -33,8 +33,7 @@ export function renderBreadcrumbs(prefix: string) {
     return `
       <a href="/?prefix=${path}"
          hx-get="/?prefix=${path}"
-         hx-target="#browser-navigation, #browser-content"
-         hx-swap="innerHTML"
+         hx-target="#browser-content"
          hx-push-url="true">${part}</a>
     `;
   });
@@ -43,8 +42,7 @@ export function renderBreadcrumbs(prefix: string) {
     <div class="breadcrumbs">
       <a href="/" 
          hx-get="/"
-         hx-target="#browser-navigation, #browser-content"
-         hx-swap="innerHTML"
+         hx-target="#browser-content"
          hx-push-url="true">Home</a>
       ${links.length ? " / " + links.join(" / ") : ""}
     </div>
