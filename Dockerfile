@@ -4,13 +4,6 @@ FROM denoland/deno:1.46.3
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY deno.json .
-COPY import_map.json* .
-
-# Cache dependencies
-RUN deno cache src/main.ts
-
 # Copy source code
 COPY . .
 
