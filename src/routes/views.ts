@@ -27,12 +27,27 @@ viewRoutes.get("/", async (c) => {
     continuationToken,
   });
 
-  // If it's an HTMX request, return just the browser content
+  // If it's an HTMX request, return both navigation and content
   if (c.req.header("HX-Request")) {
-    const content = browser(result, prefix, query);
-    const doc = new DOMParser().parseFromString(content, "text/html");
-    const browserContent = doc?.querySelector("#browser-content")?.innerHTML || "";
-    return c.html(browserContent);
+    return c.html(`
+      <div class="breadcrumbs">
+        <a href="/" 
+           hx-get="/"
+           hx-target="#browser-content"
+           hx-push-url="true">Home</a>
+        ${prefix.split("/").filter(Boolean).map((part, i, parts) => {
+          const path = parts.slice(0, i + 1).join("/");
+          return `
+            <a href="/?prefix=${path}"
+               hx-get="/?prefix=${path}"
+               hx-target="#browser-content"
+               hx-push-url="true">${part}</a>
+          `;
+        }).join(" / ")}
+      </div>
+      ${objectList(result)}
+      ${pagination(result)}
+    `);
   }
   
   // Otherwise return the full layout

@@ -59,4 +59,4 @@ docker run -p 3000:3000 \
 
 ## Authorization
 
-This application does not perform authorisation of users. I recommend using a proxy such as [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) to protect your application.
+This application does not perform authorisation of users. I recommend using a proxy such as [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) to protect your files from unauthorised access.

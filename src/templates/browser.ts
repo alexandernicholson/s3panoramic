@@ -14,37 +14,25 @@ export function browser(
       
       ${search(query)}
       
-      <div class="browser-navigation">
-        ${renderBreadcrumbs(prefix)}
-      </div>
-      
       <div id="browser-content">
+        <div class="breadcrumbs">
+          <a href="/" 
+             hx-get="/"
+             hx-target="#browser-content"
+             hx-push-url="true">Home</a>
+          ${prefix.split("/").filter(Boolean).map((part, i, parts) => {
+            const path = parts.slice(0, i + 1).join("/");
+            return `
+              <a href="/?prefix=${path}"
+                 hx-get="/?prefix=${path}"
+                 hx-target="#browser-content"
+                 hx-push-url="true">${part}</a>
+            `;
+          }).join(" / ")}
+        </div>
         ${objectList(result)}
         ${pagination(result)}
       </div>
-    </div>
-  `;
-}
-
-export function renderBreadcrumbs(prefix: string) {
-  const parts = prefix.split("/").filter(Boolean);
-  const links = parts.map((part, i) => {
-    const path = parts.slice(0, i + 1).join("/");
-    return `
-      <a href="/?prefix=${path}"
-         hx-get="/?prefix=${path}"
-         hx-target="#browser-content"
-         hx-push-url="true">${part}</a>
-    `;
-  });
-  
-  return `
-    <div class="breadcrumbs">
-      <a href="/" 
-         hx-get="/"
-         hx-target="#browser-content"
-         hx-push-url="true">Home</a>
-      ${links.length ? " / " + links.join(" / ") : ""}
     </div>
   `;
 } 

@@ -7,7 +7,7 @@ export function objectList(result: ListObjectsResult) {
         <div class="folder">
           <a href="/?prefix=${prefix}"
              hx-get="/?prefix=${prefix}"
-             hx-target="#browser-content"
+             hx-target="#browser-navigation, #browser-content"
              hx-push-url="true">
             📁 ${prefix}
           </a>
