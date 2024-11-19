@@ -60,6 +60,6 @@ docker run -p 3000:3000 \
 
 4. Open http://localhost:3000 in your browser.
 
-## Authorization
+## Authorisation / Authentication
 
-This application does not perform authorisation of users. I recommend using a proxy such as [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) to protect your files from unauthorised access.
+This application does not perform authentication or authorisation of users. I recommend using a proxy such as [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) to protect your files from unauthorised access.
