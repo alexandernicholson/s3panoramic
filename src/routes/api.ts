@@ -5,12 +5,10 @@ import { objectList } from "../templates/components/object_list.ts";
 
 const apiRoutes = new Hono();
 
-const storageService = new StorageService(
-  Deno.env.get("S3_BUCKET") || "",
-  Deno.env.get("S3_REGION") || "",
-  Deno.env.get("AWS_ACCESS_KEY_ID") || "",
-  Deno.env.get("AWS_SECRET_ACCESS_KEY") || "",
-);
+const storageService = new StorageService({
+  bucket: Deno.env.get("S3_BUCKET") || "",
+  region: Deno.env.get("S3_REGION") || ""
+});
 
 const searchService = new SearchService(storageService);
 

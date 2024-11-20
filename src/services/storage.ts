@@ -10,18 +10,23 @@ interface Credentials {
   sessionToken?: string;
 }
 
+interface StorageServiceConfig {
+  bucket: string;
+  region: string;
+}
+
 export class StorageService {
   private client: S3;
   private credentials!: Credentials;
 
-  constructor(private bucket: string, private region: string) {
+  constructor(private config: StorageServiceConfig) {
     this.initializeClient();
   }
 
   private async initializeClient() {
     this.credentials = await this.resolveCredentials();
     const factory = new ApiFactory({
-      region: this.region,
+      region: this.config.region,
       credentials: this.credentials,
     });
     
@@ -114,9 +119,9 @@ export class StorageService {
     return await getSignedUrl({
       accessKeyId: this.credentials.awsAccessKeyId,
       secretAccessKey: this.credentials.awsSecretKey,
-      bucket: this.bucket,
+      bucket: this.config.bucket,
       key,
-      region: this.region,
+      region: this.config.region,
       expiresIn,
     });
   }
@@ -125,7 +130,7 @@ export class StorageService {
     await this.ensureInitialized();
     try {
       const params: ListObjectsV2Request = {
-        Bucket: this.bucket,
+        Bucket: this.config.bucket,
         Prefix: options.prefix,
         Delimiter: options.delimiter,
         MaxKeys: options.maxKeys,
@@ -163,7 +168,7 @@ export class StorageService {
   private async getContentType(key: string): Promise<string | undefined> {
     try {
       const response = await this.client.headObject({
-        Bucket: this.bucket,
+        Bucket: this.config.bucket,
         Key: key,
       });
       return response.ContentType;

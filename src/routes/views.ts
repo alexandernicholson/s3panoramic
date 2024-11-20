@@ -4,16 +4,13 @@ import { browser } from "../templates/browser.ts";
 import { layout } from "../templates/layout.ts";
 import { objectList } from "../templates/components/object_list.ts";
 import { pagination } from "../templates/components/pagination.ts";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.48/deno-dom-wasm.ts";
 
 const viewRoutes = new Hono();
 
-const storageService = new StorageService(
-  Deno.env.get("S3_BUCKET") || "",
-  Deno.env.get("S3_REGION") || "",
-  Deno.env.get("AWS_ACCESS_KEY_ID") || "",
-  Deno.env.get("AWS_SECRET_ACCESS_KEY") || "",
-);
+const storageService = new StorageService({
+  bucket: Deno.env.get("S3_BUCKET") || "",
+  region: Deno.env.get("S3_REGION") || ""
+});
 
 viewRoutes.get("/", async (c) => {
   const prefix = c.req.query("prefix") || "";
