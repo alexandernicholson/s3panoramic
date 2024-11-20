@@ -2,7 +2,7 @@ import { ListObjectsOptions, ListObjectsResult, StorageObject } from "../types/m
 import { S3, type ListObjectsV2Request } from "https://deno.land/x/aws_api@v0.8.1/services/s3/mod.ts";
 import { ApiFactory } from "https://deno.land/x/aws_api@v0.8.1/client/mod.ts";
 import { getSignedUrl } from "https://deno.land/x/aws_s3_presign@2.2.1/mod.ts";
-import { DOMParser, Element } from "jsr:@b-fuze/deno-dom";
+import { parse as parseXml } from "jsr:@libs/xml";
 
 interface Credentials {
   awsAccessKeyId: string;
@@ -174,14 +174,10 @@ export class StorageService {
 }
 
 class WebIdentityCredentials {
-  private parser: DOMParser;
-
   constructor(
     private roleArn: string,
     private token: string,
-  ) {
-    this.parser = new DOMParser();
-  }
+  ) {}
 
   async getCredentials(): Promise<{ accessKeyId: string; secretAccessKey: string; sessionToken: string }> {
     const params = new URLSearchParams({
@@ -201,20 +197,22 @@ class WebIdentityCredentials {
     }
 
     const xml = await response.text();
-    const result = this.parser.parseFromString(xml, "text/xml");
-    if (!result) throw new Error("Failed to parse XML response");
+    const result = parseXml(xml);
     
-    const credentials = result.querySelector("Credentials");
-    if (!credentials) throw new Error("No credentials in response");
+    const credentials = result.AssumeRoleWithWebIdentityResponse?.Result?.Credentials;
+    if (!credentials) {
+      throw new Error("No credentials in response");
+    }
 
-    const accessKeyId = credentials.querySelector("AccessKeyId")?.textContent;
-    const secretAccessKey = credentials.querySelector("SecretAccessKey")?.textContent;
-    const sessionToken = credentials.querySelector("SessionToken")?.textContent;
-
-    if (!accessKeyId || !secretAccessKey || !sessionToken) {
+    const { AccessKeyId, SecretAccessKey, SessionToken } = credentials;
+    if (!AccessKeyId || !SecretAccessKey || !SessionToken) {
       throw new Error("Missing required credential fields in response");
     }
 
-    return { accessKeyId, secretAccessKey, sessionToken };
+    return {
+      accessKeyId: AccessKeyId,
+      secretAccessKey: SecretAccessKey,
+      sessionToken: SessionToken,
+    };
   }
 } 

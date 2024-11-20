@@ -2,11 +2,15 @@
   "version": "4",
   "specifiers": {
     "jsr:@b-fuze/deno-dom@*": "0.1.48",
+    "jsr:@libs/xml@*": "6.0.1",
     "npm:hono@*": "4.6.10"
   },
   "jsr": {
     "@b-fuze/deno-dom@0.1.48": {
       "integrity": "bf5b591aef2e9e9c59adfcbb93a9ecd45bab5b7c8263625beafa5c8f1662e7da"
+    },
+    "@libs/xml@6.0.1": {
+      "integrity": "64af4f93464c77c3e1158fb97c3657779ca554b14f38616b96cde31e22d8a309"
     }
   },
   "npm": {
