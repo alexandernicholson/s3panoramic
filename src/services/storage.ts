@@ -23,28 +23,28 @@ export class StorageService {
     this.client = new S3(factory);
   }
 
-  private async fetchInstanceProfileCredentials(): Promise<Credentials | null> {
+  private async fetchInstanceProfileCredentials(): Promise<[Credentials | null, string | null]> {
     try {
       const metadataUrl = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
       const roleName = await (await fetch(metadataUrl)).text();
       const credentials = await (await fetch(`${metadataUrl}${roleName}`)).json();
       
-      return {
+      return [{
         awsAccessKeyId: credentials.AccessKeyId,
         awsSecretKey: credentials.SecretAccessKey,
         sessionToken: credentials.Token,
-      };
-    } catch {
-      return null;
+      }, null];
+    } catch (error) {
+      return [null, `Instance profile credentials failed: ${error instanceof Error ? error.message : String(error)}`];
     }
   }
 
-  private async fetchIRSACredentials(): Promise<Credentials | null> {
+  private async fetchIRSACredentials(): Promise<[Credentials | null, string | null]> {
     const roleArn = Deno.env.get("AWS_ROLE_ARN");
     const tokenFile = Deno.env.get("AWS_WEB_IDENTITY_TOKEN_FILE");
 
     if (!roleArn || !tokenFile) {
-      return null;
+      return [null, "IRSA credentials not configured: missing AWS_ROLE_ARN or AWS_WEB_IDENTITY_TOKEN_FILE"];
     }
 
     try {
@@ -52,44 +52,49 @@ export class StorageService {
       const sts = new WebIdentityCredentials(roleArn, token);
       const creds = await sts.getCredentials();
       
-      return {
+      return [{
         awsAccessKeyId: creds.accessKeyId,
         awsSecretKey: creds.secretAccessKey,
         sessionToken: creds.sessionToken,
-      };
-    } catch {
-      return null;
+      }, null];
+    } catch (error) {
+      return [null, `IRSA credentials failed: ${error instanceof Error ? error.message : String(error)}`];
     }
   }
 
-  private getStaticCredentials(): Credentials | null {
+  private getStaticCredentials(): [Credentials | null, string | null] {
     const accessKeyId = Deno.env.get("AWS_ACCESS_KEY_ID");
     const secretKey = Deno.env.get("AWS_SECRET_ACCESS_KEY");
 
     if (!accessKeyId || !secretKey) {
-      return null;
+      return [null, "Static credentials not configured: missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY"];
     }
 
-    return {
+    return [{
       awsAccessKeyId: accessKeyId,
       awsSecretKey: secretKey,
-    };
+    }, null];
   }
 
   private async resolveCredentials(): Promise<Credentials> {
+    const errors: string[] = [];
+
     // Try IRSA first
-    const irsaCreds = await this.fetchIRSACredentials();
+    const [irsaCreds, irsaError] = await this.fetchIRSACredentials();
     if (irsaCreds) return irsaCreds;
+    if (irsaError) errors.push(irsaError);
 
     // Then try static credentials
-    const staticCreds = this.getStaticCredentials();
+    const [staticCreds, staticError] = this.getStaticCredentials();
     if (staticCreds) return staticCreds;
+    if (staticError) errors.push(staticError);
 
     // Finally try instance profile
-    const instanceCreds = await this.fetchInstanceProfileCredentials();
+    const [instanceCreds, instanceError] = await this.fetchInstanceProfileCredentials();
     if (instanceCreds) return instanceCreds;
+    if (instanceError) errors.push(instanceError);
 
-    throw new Error("No valid AWS credentials found");
+    throw new Error(`No valid AWS credentials found:\n${errors.join('\n')}`);
   }
 
   async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
