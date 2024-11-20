@@ -2,7 +2,7 @@ import { ListObjectsOptions, ListObjectsResult, StorageObject } from "../types/m
 import { S3, type ListObjectsV2Request } from "https://deno.land/x/aws_api@v0.8.1/services/s3/mod.ts";
 import { ApiFactory } from "https://deno.land/x/aws_api@v0.8.1/client/mod.ts";
 import { getSignedUrl } from "https://deno.land/x/aws_s3_presign@2.2.1/mod.ts";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.48/deno-dom-wasm.ts";
+import { DOMParser, Element } from "jsr:@b-fuze/deno-dom";
 
 interface Credentials {
   awsAccessKeyId: string;
