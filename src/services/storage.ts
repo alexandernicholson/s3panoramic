@@ -2,6 +2,7 @@ import { ListObjectsOptions, ListObjectsResult, StorageObject } from "../types/m
 import { S3, type ListObjectsV2Request } from "https://deno.land/x/aws_api@v0.8.1/services/s3/mod.ts";
 import { ApiFactory } from "https://deno.land/x/aws_api@v0.8.1/client/mod.ts";
 import { getSignedUrl } from "https://deno.land/x/aws_s3_presign@2.2.1/mod.ts";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.48/deno-dom-wasm.ts";
 
 interface Credentials {
   awsAccessKeyId: string;
@@ -11,16 +12,27 @@ interface Credentials {
 
 export class StorageService {
   private client: S3;
-  private credentials: Credentials;
+  private credentials!: Credentials;
 
   constructor(private bucket: string, private region: string) {
-    this.credentials = this.resolveCredentials();
+    this.initializeClient();
+  }
+
+  private async initializeClient() {
+    this.credentials = await this.resolveCredentials();
     const factory = new ApiFactory({
       region: this.region,
       credentials: this.credentials,
     });
     
     this.client = new S3(factory);
+  }
+
+  // Make sure any method that uses this.client waits for initialization
+  private async ensureInitialized() {
+    if (!this.client) {
+      await this.initializeClient();
+    }
   }
 
   private async fetchInstanceProfileCredentials(): Promise<[Credentials | null, string | null]> {
@@ -98,6 +110,7 @@ export class StorageService {
   }
 
   async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
+    await this.ensureInitialized();
     return await getSignedUrl({
       accessKeyId: this.credentials.awsAccessKeyId,
       secretAccessKey: this.credentials.awsSecretKey,
@@ -109,6 +122,7 @@ export class StorageService {
   }
 
   async listObjects(options: ListObjectsOptions): Promise<ListObjectsResult> {
+    await this.ensureInitialized();
     try {
       const params: ListObjectsV2Request = {
         Bucket: this.bucket,
@@ -160,10 +174,14 @@ export class StorageService {
 }
 
 class WebIdentityCredentials {
+  private parser: DOMParser;
+
   constructor(
     private roleArn: string,
     private token: string,
-  ) {}
+  ) {
+    this.parser = new DOMParser();
+  }
 
   async getCredentials(): Promise<{ accessKeyId: string; secretAccessKey: string; sessionToken: string }> {
     const params = new URLSearchParams({
@@ -183,15 +201,20 @@ class WebIdentityCredentials {
     }
 
     const xml = await response.text();
-    const result = new DOMParser().parseFromString(xml, "text/xml");
+    const result = this.parser.parseFromString(xml, "text/xml");
+    if (!result) throw new Error("Failed to parse XML response");
     
     const credentials = result.querySelector("Credentials");
     if (!credentials) throw new Error("No credentials in response");
 
-    return {
-      accessKeyId: credentials.querySelector("AccessKeyId")?.textContent ?? "",
-      secretAccessKey: credentials.querySelector("SecretAccessKey")?.textContent ?? "",
-      sessionToken: credentials.querySelector("SessionToken")?.textContent ?? "",
-    };
+    const accessKeyId = credentials.querySelector("AccessKeyId")?.textContent;
+    const secretAccessKey = credentials.querySelector("SecretAccessKey")?.textContent;
+    const sessionToken = credentials.querySelector("SessionToken")?.textContent;
+
+    if (!accessKeyId || !secretAccessKey || !sessionToken) {
+      throw new Error("Missing required credential fields in response");
+    }
+
+    return { accessKeyId, secretAccessKey, sessionToken };
   }
 } 
