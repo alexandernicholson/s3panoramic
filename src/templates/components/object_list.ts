@@ -19,8 +19,10 @@ export function objectList(result: ListObjectsResult) {
           <span class="name">📄 ${obj.key}</span>
           <span class="size">${formatSize(obj.size)}</span>
           <span class="modified">${formatDate(obj.lastModified)}</span>
-          <a href="/api/download/${encodeURIComponent(obj.key)}"
-             class="download">
+          <a href="/api/download/${encodeURIComponent(obj.key)}" 
+             class="download"
+             target="_blank"
+             rel="noopener">
             ⬇️ Download
           </a>
         </div>
