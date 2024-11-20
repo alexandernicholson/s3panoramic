@@ -18,6 +18,8 @@ interface StorageServiceConfig {
 export class StorageService {
   private client: S3;
   private credentials!: Credentials;
+  private lastCredentialRefresh: number = 0;
+  private readonly CREDENTIAL_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
   constructor(private config: StorageServiceConfig) {
     this.initializeClient();
@@ -114,68 +116,105 @@ export class StorageService {
     throw new Error(`No valid AWS credentials found:\n${errors.join('\n')}`);
   }
 
+  private async refreshCredentialsIfNeeded() {
+    const now = Date.now();
+    if (now - this.lastCredentialRefresh >= this.CREDENTIAL_REFRESH_INTERVAL) {
+      this.credentials = await this.resolveCredentials();
+      this.lastCredentialRefresh = now;
+      
+      // Reinitialize client with new credentials
+      const factory = new ApiFactory({
+        region: this.config.region,
+        credentials: this.credentials,
+      });
+      this.client = new S3(factory);
+    }
+  }
+
+  private async retryWithRefresh<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      await this.refreshCredentialsIfNeeded();
+      return await operation();
+    } catch (error) {
+      if (error instanceof Error && 
+          (error.message.includes("ExpiredToken") || 
+           error.message.includes("InvalidToken"))) {
+        // Force refresh credentials and retry once
+        this.lastCredentialRefresh = 0;
+        await this.refreshCredentialsIfNeeded();
+        return await operation();
+      }
+      throw error;
+    }
+  }
+
   async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
-    await this.ensureInitialized();
-    return await getSignedUrl({
-      accessKeyId: this.credentials.awsAccessKeyId,
-      secretAccessKey: this.credentials.awsSecretKey,
-      sessionToken: this.credentials.sessionToken,
-      bucket: this.config.bucket,
-      key,
-      region: this.config.region,
-      expiresIn,
+    return await this.retryWithRefresh(async () => {
+      await this.ensureInitialized();
+      return await getSignedUrl({
+        accessKeyId: this.credentials.awsAccessKeyId,
+        secretAccessKey: this.credentials.awsSecretKey,
+        sessionToken: this.credentials.sessionToken,
+        bucket: this.config.bucket,
+        key,
+        region: this.config.region,
+        expiresIn,
+      });
     });
   }
 
   async listObjects(options: ListObjectsOptions): Promise<ListObjectsResult> {
-    await this.ensureInitialized();
-    try {
-      const params: ListObjectsV2Request = {
-        Bucket: this.config.bucket,
-        Prefix: options.prefix,
-        Delimiter: options.delimiter,
-        MaxKeys: options.maxKeys,
-        ContinuationToken: options.continuationToken,
-      };
+    return await this.retryWithRefresh(async () => {
+      await this.ensureInitialized();
+      try {
+        const params: ListObjectsV2Request = {
+          Bucket: this.config.bucket,
+          Prefix: options.prefix,
+          Delimiter: options.delimiter,
+          MaxKeys: options.maxKeys,
+          ContinuationToken: options.continuationToken,
+        };
 
-      const response = await this.client.listObjectsV2(params);
+        const response = await this.client.listObjectsV2(params);
 
-      const objects: StorageObject[] = response.Contents?.map(obj => ({
-        key: obj.Key || "",
-        size: obj.Size || 0,
-        lastModified: obj.LastModified || new Date(),
-        etag: (obj.ETag || "").replace(/^"|"$/g, ""),
-        contentType: undefined, // Content type requires separate HEAD request
-      })) || [];
+        const objects: StorageObject[] = response.Contents?.map(obj => ({
+          key: obj.Key || "",
+          size: obj.Size || 0,
+          lastModified: obj.LastModified || new Date(),
+          etag: (obj.ETag || "").replace(/^"|"$/g, ""),
+          contentType: undefined,
+        })) || [];
 
-      // Get content types in parallel for better performance
-      await Promise.all(objects.map(async (obj) => {
-        obj.contentType = await this.getContentType(obj.key);
-      }));
+        await Promise.all(objects.map(async (obj) => {
+          obj.contentType = await this.getContentType(obj.key);
+        }));
 
-      return {
-        objects,
-        prefixes: response.CommonPrefixes?.map(p => p.Prefix || "") || [],
-        truncated: response.IsTruncated || false,
-        nextContinuationToken: response.NextContinuationToken,
-      };
-    } catch (error) {
-      throw new Error(
-        `Failed to list objects: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+        return {
+          objects,
+          prefixes: response.CommonPrefixes?.map(p => p.Prefix || "") || [],
+          truncated: response.IsTruncated || false,
+          nextContinuationToken: response.NextContinuationToken,
+        };
+      } catch (error) {
+        throw new Error(
+          `Failed to list objects: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    });
   }
 
   private async getContentType(key: string): Promise<string | undefined> {
-    try {
-      const response = await this.client.headObject({
-        Bucket: this.config.bucket,
-        Key: key,
-      });
-      return response.ContentType;
-    } catch {
-      return undefined;
-    }
+    return await this.retryWithRefresh(async () => {
+      try {
+        const response = await this.client.headObject({
+          Bucket: this.config.bucket,
+          Key: key,
+        });
+        return response.ContentType;
+      } catch {
+        return undefined;
+      }
+    });
   }
 }
 
