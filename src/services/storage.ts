@@ -119,6 +119,7 @@ export class StorageService {
     return await getSignedUrl({
       accessKeyId: this.credentials.awsAccessKeyId,
       secretAccessKey: this.credentials.awsSecretKey,
+      sessionToken: this.credentials.sessionToken,
       bucket: this.config.bucket,
       key,
       region: this.config.region,
