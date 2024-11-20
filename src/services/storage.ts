@@ -211,7 +211,7 @@ class WebIdentityCredentials {
     }
 
     const result = parseXml(responseText);
-    const credentials = result.AssumeRoleWithWebIdentityResponse?.Result?.Credentials;
+    const credentials = result.AssumeRoleWithWebIdentityResponse?.AssumeRoleWithWebIdentityResult?.Credentials;
     
     if (!credentials) {
       console.error('IRSA Parsing Failed:', {
