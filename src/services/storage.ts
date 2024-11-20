@@ -188,24 +188,47 @@ class WebIdentityCredentials {
       WebIdentityToken: this.token,
     });
 
-    const response = await fetch(`https://sts.amazonaws.com?${params}`, {
+    const url = `https://sts.amazonaws.com?${params}`;
+    const response = await fetch(url, {
       method: "GET",
     });
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      throw new Error(`Failed to assume role: ${await response.text()}`);
+      console.error('IRSA Request Failed:', {
+        url,
+        requestHeaders: {
+          method: "GET",
+          RoleArn: this.roleArn,
+          TokenLength: this.token.length,
+        },
+        responseStatus: response.status,
+        responseHeaders: Object.fromEntries(response.headers),
+        responseBody: responseText
+      });
+      throw new Error(`Failed to assume role: ${responseText}`);
     }
 
-    const xml = await response.text();
-    const result = parseXml(xml);
-    
+    const result = parseXml(responseText);
     const credentials = result.AssumeRoleWithWebIdentityResponse?.Result?.Credentials;
+    
     if (!credentials) {
-      throw new Error("No credentials in response");
+      console.error('IRSA Parsing Failed:', {
+        parsedXml: JSON.stringify(result, null, 2),
+        rawResponse: responseText
+      });
+      throw new Error("No credentials in response. Full response: " + JSON.stringify(result, null, 2));
     }
 
     const { AccessKeyId, SecretAccessKey, SessionToken } = credentials;
     if (!AccessKeyId || !SecretAccessKey || !SessionToken) {
+      console.error('IRSA Missing Fields:', {
+        hasAccessKeyId: !!AccessKeyId,
+        hasSecretAccessKey: !!SecretAccessKey,
+        hasSessionToken: !!SessionToken,
+        parsedCredentials: credentials
+      });
       throw new Error("Missing required credential fields in response");
     }
 
